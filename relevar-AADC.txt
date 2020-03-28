@@ -1,0 +1,5 @@
+Get-ADSyncScheduler
+Get-ADSyncAADCompanyFeature
+Get-ADSyncAutoUpgrade
+Get-ADSyncDatabaseConfiguration
+Get-ADSyncServerConfiguration -Path .\Desktop\config

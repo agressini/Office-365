@@ -1,0 +1,2 @@
+$groupid = Get-MsolGroup | Where-Object {$_.DisplayName -eq “GRPEMSE5”}
+Get-MsolUser -UserPrincipalName "" | Add-MsolGroupMember -GroupObjectId $groupid.ObjectId -GroupMemberObjectId $_.ObjectId -GroupMemberType User
