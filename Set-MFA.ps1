@@ -54,29 +54,30 @@ try {
             Write-Host "Inicio de actividades ReportOnly"
             "Inicio de actividades ReportOnly" | Out-File -Encoding utf8 -FilePath $logPath -Append
             $users = Get-MsolUser -All
-            $MFA = @()
+            $MFAtotal = @()
             ForEach ($user in $users) {
 
-                $MFA = New-Object System.Object
-
-                ForEach ($sta in $user.StrongAuthenticationMethods){
-
-                    $MFA | Add-Member -type NoteProperty -name DisplayName -Value  $user.DisplayName
-                    $MFA | Add-Member -type NoteProperty -name UserPrincipalName -Value $user.UserPrincipalName
-                    $MFA | Add-Member -type NoteProperty -name AuthenticationMethods -Value $user.StrongAuthenticationMethods.MethodType
-                    $MFA | Add-Member -type NoteProperty -name Status -Value $user.StrongAuthenticationMethods.IsDefault
+                if (!$user.StrongAuthenticationMethods) {
+                    $noMFA = New-Object System.Object
+                    $noMFA | Add-Member -type NoteProperty -name DisplayName -Value  $user.DisplayName
+                    $noMFA | Add-Member -type NoteProperty -name UserPrincipalName -Value $user.UserPrincipalName
+                    $noMFA | Add-Member -type NoteProperty -name AuthenticationMethods "None"
+                    $noMFA | Add-Member -type NoteProperty -name Status -Value "Disable"
+                    $MFAtotal += $noMFA
                 }
-
-                if ($user.StrongAuthenticationMethods -eq "") {
-                    $MFA | Add-Member -type NoteProperty -name DisplayName -Value  $user.DisplayName
-                    $MFA | Add-Member -type NoteProperty -name UserPrincipalName -Value $user.UserPrincipalName
-                    $MFA | Add-Member -type NoteProperty -name AuthenticationMethods "None"
-                    $MFA | Add-Member -type NoteProperty -name Status -Value "Disable"
+                else {
+                    ForEach ($sta in $user.StrongAuthenticationMethods){
+                        $MFA = New-Object System.Object
+                        $MFA | Add-Member -type NoteProperty -name DisplayName -Value  $user.DisplayName
+                        $MFA | Add-Member -type NoteProperty -name UserPrincipalName -Value $user.UserPrincipalName
+                        $MFA | Add-Member -type NoteProperty -name AuthenticationMethods -Value $sta.MethodType
+                        $MFA | Add-Member -type NoteProperty -name Status -Value $sta.IsDefault
+                        $MFAtotal += $MFA
+                    }
+                    
                 }
-
-                $MFA += $MFA
             }
-            $MFA | Export-CSV $ReportPath -NoTypeInformation -Append
+            $MFAtotal | Export-CSV $ReportPath -NoTypeInformation -Append
         }
         "EnableMFA" {
             # Formato "bsimon@contoso.com","jsmith@contoso.com","ljacobson@contoso.com"
