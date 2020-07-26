@@ -16,13 +16,13 @@ param (
     )
 
 #Variables basicas    
-Import-Module -Name MSonline
+Import-Module -Name MSonline -ErrorAction SilentlyContinue
 Write-Host "Seting up Variables..." -ForegroundColor Yellow
 $Now = Get-Date
 $ExportPath = "$env:USERPROFILE\Downloads\"
 $logPath = ($ExportPath + "MFA_OPS-log.txt")
 $ReportPath = $ExportPath + "Report_MFA_USERS" +($Now).ToString("yyMMddhhmm") + ".csv"
-$Module = Get-Module -Name MSOnline
+$Module = Get-Module -Name MSOnline -ErrorAction SilentlyContinue
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 
 #print de los valores
@@ -32,13 +32,13 @@ Write-Host "La actividad sera reflejada en: $logPath"
 
 try {
         
-    If ($Module.Name -eq "MSOnline")
+    If ($Module)
     {
         Write-Host "Conectando a MS Online: "
         "Conectando a MS Online!" | Out-File -Encoding utf8 -FilePath $logPath -Append
         Connect-MsolService
     }   
-    elseif ($Module.Name -ne "MSOnline" -and $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    elseif (!$Module -and $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Install-Module MSOnline
         Connect-MsolService
     }
@@ -52,8 +52,6 @@ try {
 catch {
     Write-Host "Error: al conectarse con Office 365"
     "Error: al conectarse con Office 365"| Out-File -Encoding utf8 -FilePath $logPath -Append
-    Throw{ (Write-Warning -Message "Error: al conectarse con Office 365")
-    }
 }
 
 try {
@@ -72,6 +70,8 @@ try {
                     $noMFA | Add-Member -type NoteProperty -name AuthenticationMethods "None"
                     $noMFA | Add-Member -type NoteProperty -name Status -Value "Disable"
                     $MFAtotal += $noMFA
+                    Write-Host "MFA no configurado: " + $user.UserPrincipalName
+                    "MFA no configurado: " + $user.UserPrincipalName | Out-File -Encoding utf8 -FilePath $logPath -Append
                 }
                 else {
                     ForEach ($sta in $user.StrongAuthenticationMethods){
@@ -81,6 +81,8 @@ try {
                         $MFA | Add-Member -type NoteProperty -name AuthenticationMethods -Value $sta.MethodType
                         $MFA | Add-Member -type NoteProperty -name Status -Value $sta.IsDefault
                         $MFAtotal += $MFA
+                        Write-Host "MFA configurado: " + $user.UserPrincipalName
+                        "MFA configurado: " + $user.UserPrincipalName | Out-File -Encoding utf8 -FilePath $logPath -Append
                     }
                     
                 }
@@ -91,18 +93,19 @@ try {
         }
         "EnableMFA" {
             # Formato "bsimon@contoso.com","jsmith@contoso.com","ljacobson@contoso.com"
-            $Users = Get-Content -Path $ImportPath
+            $Users = Import-Csv -Delimiter "," -Path $ImportFile
             
             foreach ($User in $Users)
             {
-                $state = Get-MsolUser -UserPrincipalName $User 
+                $state = Get-MsolUser -UserPrincipalName $User.UserPrincipalName
 
                 if(!$state.StrongAuthenticationMethods){
                     $st = New-Object -TypeName Microsoft.Online.Administration.StrongAuthenticationRequirement
                     $st.RelyingParty = "*"
                     $st.State = "Enabled"
                     $sta = @($st)
-                    Set-MsolUser -UserPrincipalName $user -StrongAuthenticationRequirements $sta 
+
+                    Set-MsolUser -UserPrincipalName $state.UserPrincipalName -StrongAuthenticationRequirements $sta 
 
                     Write-Host  $state.UserPrincipalName " ahora tiene activo un metodo de autenticacion"
                     $state.UserPrincipalName + " ahora tiene activo un metodo de autenticacion" | Out-File -Encoding utf8 -FilePath $logPath -Append
@@ -117,6 +120,8 @@ try {
         "DisableMFA" { 
             #Disable
             Get-MsolUser -UserPrincipalName $UPN | Set-MsolUser -StrongAuthenticationRequirements @()
+            Write-Host "MFA deshabilitado: " + $UPN
+            "MFA deshabilitado: " + $UPN | Out-File -Encoding utf8 -FilePath $logPath -Append
          }
         Default {}
     }
@@ -124,9 +129,7 @@ try {
 }
 catch {
     Write-Host "Ha ocurrido un error durente el proceso de configuracion"
-            "Ha ocurrido un error durente el proceso de configuracion" | Out-File -Encoding utf8 -FilePath $logPath -Append
-            Throw{ (Write-Warning -Message "Ha ocurrido un error durente el proceso de configuracion")
-    }
+    "Ha ocurrido un error durente el proceso de configuracion" | Out-File -Encoding utf8 -FilePath $logPath -Append
 }
 
 
