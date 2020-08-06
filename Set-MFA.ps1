@@ -92,8 +92,23 @@ try {
             "Elreporte de usuarios esta disponible en: $ReportPath" | Out-File -Encoding utf8 -FilePath $logPath -Append
         }
         "EnableMFA" {
-            # Formato "bsimon@contoso.com","jsmith@contoso.com","ljacobson@contoso.com"
-            $Users = Import-Csv -Delimiter "," -Path $ImportFile
+            # Formato sin el paw
+            #UserPrincipalName
+            #agente01@secure-demos.algeiba.com
+            #PEPE@secure-demos.algeiba.com
+            #demo@secure-demos.algeiba.com
+            #PradeepG@M365x332553.OnMicrosoft.com
+            
+            $tpath = Test-Path -Path $ImportFile
+            
+
+            if ($tpath) {
+                $Users = Import-Csv -Delimiter "," -Path $ImportFile
+            }
+            else {
+                $Users = Get-ADGroupMember -Identity $ImportFile
+            }
+            
             
             foreach ($User in $Users)
             {
